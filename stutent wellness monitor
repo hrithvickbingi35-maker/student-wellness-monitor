@@ -1,0 +1,318 @@
+/*
+Student Wellness Monitor
+Single-project React app (Vite) with:
+- Daily mood check-ins
+- Simple sentiment analysis (client-side lexicon)
+- Personalized wellness recommendations
+- Trend visualization (Recharts)
+- LocalStorage tracking (persist data)
+
+Files included below. Follow README at the bottom to run locally.
+
+--- FILE: package.json ---
+{
+  "name": "student-wellness-monitor",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "recharts": "^2.5.0"
+  },
+  "devDependencies": {
+    "vite": "^5.0.0"
+  }
+}
+
+--- FILE: index.html ---
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Student Wellness Monitor</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
+
+--- FILE: src/main.jsx ---
+import React from 'react'
+import { createRoot } from 'react-dom/client'
+import App from './App'
+import './styles.css'
+
+createRoot(document.getElementById('root')).render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>
+)
+
+--- FILE: src/styles.css ---
+/* Minimal styling. You can replace this with Tailwind if you prefer. */
+:root{
+  --bg:#0f172a;
+  --card:#0b1220;
+  --muted:#94a3b8;
+  --accent:#7c3aed;
+  --glass: rgba(255,255,255,0.03);
+}
+html,body,#root{height:100%;}
+body{
+  margin:0; font-family:Inter, system-ui, sans-serif; background:linear-gradient(180deg,var(--bg),#071020); color:#e6eef8;
+}
+.container{max-width:1000px;margin:32px auto;padding:20px;}
+.header{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+.card{background:var(--card);padding:16px;border-radius:12px;box-shadow:0 6px 18px rgba(2,6,23,0.6)}
+.flex{display:flex;gap:12px}
+.column{display:flex;flex-direction:column;gap:12px}
+.button{background:var(--accent);color:white;padding:10px 14px;border-radius:10px;border:none;cursor:pointer}
+.input, textarea{width:100%;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.06);background:var(--glass);color:inherit}
+.small{font-size:13px;color:var(--muted)}
+.mood-grid{display:flex;gap:8px;flex-wrap:wrap}
+.mood-btn{padding:10px 12px;border-radius:10px;border:1px solid rgba(255,255,255,0.04);cursor:pointer;background:transparent}
+
+--- FILE: src/App.jsx ---
+import React, {useEffect, useState} from 'react'
+import MoodCheckin from './components/MoodCheckin'
+import Trends from './components/Trends'
+import Recommendations from './components/Recommendations'
+
+const STORAGE_KEY = 'swm_checkins_v1'
+
+export default function App(){
+  const [checkins, setCheckins] = useState([])
+
+  useEffect(()=>{
+    const raw = localStorage.getItem(STORAGE_KEY)
+    if(raw) setCheckins(JSON.parse(raw))
+  },[])
+
+  useEffect(()=>{
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(checkins))
+  },[checkins])
+
+  function addCheckin(entry){
+    setCheckins(prev => [entry, ...prev].slice(0,365)) // keep up to 1 year
+  }
+
+  return (
+    <div className="container">
+      <div className="header">
+        <h1>Student Wellness Monitor</h1>
+        <div className="small">Daily mood check-ins · Sentiment analysis · Trends · Recommendations</div>
+      </div>
+
+      <div className="flex" style={{gap:16}}>
+        <div style={{flex:1}} className="card column">
+          <MoodCheckin onSave={addCheckin} />
+          <Recommendations checkins={checkins} />
+        </div>
+
+        <div style={{flex:1}} className="card column">
+          <Trends checkins={checkins} />
+        </div>
+      </div>
+
+      <div style={{marginTop:16}} className="card small">
+        Tip: Your check-ins are stored locally in your browser. For production, connect to a secure backend and encrypt data at rest.
+      </div>
+    </div>
+  )
+}
+
+--- FILE: src/components/MoodCheckin.jsx ---
+import React, {useState} from 'react'
+
+// Simple client-side sentiment analyzer using a tiny lexicon.
+const lexicon = {
+  positive: ['good','great','happy','excited','okay','fine','relaxed','content','productive','motivated'],
+  negative: ['sad','depressed','angry','anxious','stressed','tired','lonely','frustrated','overwhelmed','discouraged']
+}
+
+function analyzeSentiment(text){
+  if(!text) return 0
+  const t = text.toLowerCase()
+  let score = 0
+  lexicon.positive.forEach(w=>{ if(t.includes(w)) score += 1 })
+  lexicon.negative.forEach(w=>{ if(t.includes(w)) score -= 1 })
+  // normalize roughly between -1 and 1
+  const maxPossible = Math.max(lexicon.positive.length, lexicon.negative.length)
+  const normalized = Math.max(-1, Math.min(1, score / 3))
+  return normalized
+}
+
+const moods = [
+  {label:'Terrible', value:1},
+  {label:'Bad', value:2},
+  {label:'Okay', value:3},
+  {label:'Good', value:4},
+  {label:'Great', value:5}
+]
+
+export default function MoodCheckin({onSave}){
+  const [mood, setMood] = useState(4)
+  const [notes, setNotes] = useState('')
+  const [savedToday, setSavedToday] = useState(false)
+
+  function handleSave(){
+    const sentiment = analyzeSentiment(notes)
+    const entry = {id:Date.now(), date:new Date().toISOString(), mood, notes, sentiment}
+    onSave(entry)
+    setSavedToday(true)
+    setNotes('')
+    setTimeout(()=>setSavedToday(false),1800)
+  }
+
+  return (
+    <div>
+      <h2>Today's Check-in</h2>
+      <div className="small">Select mood</div>
+      <div className="mood-grid" style={{marginTop:8}}>
+        {moods.map(m=> (
+          <button key={m.value} className={`mood-btn ${mood===m.value? 'active':''}`} onClick={()=>setMood(m.value)}>
+            {m.label}
+          </button>
+        ))}
+      </div>
+
+      <div style={{marginTop:12}}>
+        <div className="small">Write a short note (how you feel, why, anything)</div>
+        <textarea className="input" rows={4} value={notes} onChange={e=>setNotes(e.target.value)} placeholder="I felt..." />
+      </div>
+
+      <div style={{marginTop:10,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+        <div className="small">Sentiment preview: <strong>{analyzeSentiment(notes).toFixed(2)}</strong></div>
+        <button className="button" onClick={handleSave}>Save Check-in</button>
+      </div>
+    </div>
+  )
+}
+
+--- FILE: src/components/Recommendations.jsx ---
+import React, {useMemo} from 'react'
+
+function generateRecommendations(checkins){
+  // simple rules: if recent negative sentiment or low mood -> suggest
+  const last7 = checkins.slice(0,7)
+  if(last7.length===0) return [
+    'Try a short breathing exercise: 4-4-4 breathing for 2 minutes.',
+    'Take a 10-minute walk today and get sunlight if possible.'
+  ]
+
+  const avgMood = last7.reduce((s,c)=>s+c.mood,0)/last7.length
+  const avgSent = last7.reduce((s,c)=>s+c.sentiment,0)/last7.length
+  const recs = []
+  if(avgMood <= 2.6 || avgSent < -0.1) {
+    recs.push('You seem low lately — try scheduling a brief check-in with a friend or counselor.')
+    recs.push('Practice grounding: name 5 things you can see, 4 you can touch, 3 you can hear.')
+    recs.push('If negative feelings persist, consider contacting a mental health professional.')
+  } else if(avgMood <= 3.5) {
+    recs.push('Some ups and downs — keep a short gratitude list: 3 things each evening.')
+    recs.push('Maintain sleep schedule: aim for consistent wake/sleep times.')
+  } else {
+    recs.push('You are doing well — keep the momentum: short study breaks and reward yourself.')
+    recs.push('Consider helping a peer — teaching reinforces mood and competence.')
+  }
+
+  // always add micro-habits
+  recs.push('Micro-habit: 2-minute stretching when you start study sessions.')
+  return recs
+}
+
+export default function Recommendations({checkins}){
+  const recs = useMemo(()=>generateRecommendations(checkins),[checkins])
+
+  return (
+    <div style={{marginTop:12}}>
+      <h3>Personalized Recommendations</h3>
+      <ul>
+        {recs.map((r,i)=> <li key={i} className="small">{r}</li>)}
+      </ul>
+    </div>
+  )
+}
+
+--- FILE: src/components/Trends.jsx ---
+import React from 'react'
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
+
+export default function Trends({checkins}){
+  const data = checkins.slice().reverse().map(c=>({
+    date: new Date(c.date).toLocaleDateString(),
+    mood: c.mood,
+    sentiment: Number((c.sentiment*5).toFixed(2))
+  }))
+
+  return (
+    <div>
+      <h2>Trends (last entries)</h2>
+      {data.length===0 ? (
+        <div className="small">No check-ins yet — add today’s mood to see trends.</div>
+      ) : (
+        <div style={{width:'100%', height:300}}>
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={data} margin={{top:20,right:20,left:0,bottom:10}}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="date" tick={{fontSize:12}}/>
+              <YAxis domain={[1,5]} allowDecimals={false} />
+              <Tooltip />
+              <Line type="monotone" dataKey="mood" stroke="#8884d8" strokeWidth={3} dot={{r:3}} />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+
+      <div style={{marginTop:12}} className="small">
+        Mood: 1 (Terrible) — 5 (Great). Sentiment scaled for internal use.
+      </div>
+
+      <div style={{marginTop:14}} className="card small">
+        History (most recent first):
+        <ul>
+          {checkins.map(c=> (
+            <li key={c.id}>{new Date(c.date).toLocaleString()}: Mood {c.mood} — {c.notes ? (c.notes.length>60? c.notes.slice(0,60)+'...': c.notes) : '— no note'}</li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  )
+}
+
+--- FILE: README.md ---
+# Student Wellness Monitor (Local demo)
+
+This project is a single-page React app that demonstrates the requested features:
+- Daily mood check-ins
+- Simple sentiment analysis
+- Personalized wellness recommendations
+- Trend visualization
+- LocalStorage tracking
+
+## Run locally (quick)
+1. Make sure you have Node.js (>=18) installed.
+2. Create a new folder and place the files as shown.
+3. Run:
+
+```bash
+npm install
+npm run dev
+```
+
+4. Open the URL printed by Vite (usually http://localhost:5173)
+
+## Notes & next steps (production-ready ideas)
+- Replace the client-side sentiment analyzer with a server-side model or an external NLP service for higher accuracy.
+- Add authentication and a secure backend (FastAPI/Express) with encrypted storage for personal data.
+- Add reminders, calendar integrations, or exportable reports (CSV/PDF).
+- Add accessibility improvements and i18n.
+
+--- END OF PROJECT ---
+*/
