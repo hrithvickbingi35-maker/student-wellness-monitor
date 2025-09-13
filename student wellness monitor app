@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Student Wellness Monitor</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <h1>Student Wellness Monitor</h1>
+
+    <div class="card">
+      <h2>Daily Mood Check-in</h2>
+      <label for="mood">Select your mood:</label>
+      <select id="mood">
+        <option value="1">😞 Terrible</option>
+        <option value="2">😕 Bad</option>
+        <option value="3">😐 Okay</option>
+        <option value="4">🙂 Good</option>
+        <option value="5">😄 Great</option>
+      </select>
+
+      <label for="notes">Notes:</label>
+      <textarea id="notes" placeholder="How do you feel today?"></textarea>
+
+      <button onclick="saveCheckin()">Save Check-in</button>
+      <p id="feedback"></p>
+    </div>
+
+    <div class="card">
+      <h2>Recent Check-ins</h2>
+      <ul id="history"></ul>
+    </div>
+
+    <div class="card">
+      <h2>Personalized Recommendation</h2>
+      <p id="recommendation">No data yet. Start by adding a check-in.</p>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
